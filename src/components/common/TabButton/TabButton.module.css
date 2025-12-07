@@ -3,20 +3,28 @@
   padding: 12px 16px;
   border: none;
   background: transparent;
-  color: var(--tg-text-color, #000000);
+  color: var(--tg-text-color);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   border-bottom: 2px solid transparent;
+  user-select: none;
 }
 
 .button:hover {
-  background-color: var(--tg-active-bg, #f0f8ff);
+  background-color: var(--tg-active-bg);
 }
 
 .button.active {
-  color: var(--tg-link-color, #0088cc);
-  border-bottom-color: var(--tg-link-color, #0088cc);
-  background-color: var(--tg-active-bg, #f0f8ff);
+  color: var(--tg-link-color);
+  border-bottom-color: var(--tg-link-color);
+  background-color: var(--tg-active-bg);
+}
+
+/* Поддержка reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
 }

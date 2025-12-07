@@ -1,13 +1,26 @@
 import { useEffect } from 'react';
-import { ThemeParams } from '../types';
+import { TelegramWebApp } from '../types';
 import { ThemeService } from '../utils/theme';
 
-export const useTheme = (isTelegram: boolean, themeParams: ThemeParams | null) => {
+export const useTheme = (webApp: TelegramWebApp | null) => {
   useEffect(() => {
-    if (isTelegram && themeParams) {
-      ThemeService.applyTelegramTheme(themeParams);
+    if (webApp) {
+      // Применяем начальную тему
+      ThemeService.applyTelegramTheme(webApp.themeParams);
+      
+      // Подписываемся на изменения темы
+      const handleThemeChange = () => {
+        ThemeService.applyTelegramTheme(webApp.themeParams);
+      };
+      
+      webApp.onEvent('themeChanged', handleThemeChange);
+      
+      return () => {
+        webApp.offEvent('themeChanged', handleThemeChange);
+      };
     } else {
+      // Вне Telegram — стандартная тема
       ThemeService.applyDefaultTheme();
     }
-  }, [isTelegram, themeParams]);
+  }, [webApp]);
 };

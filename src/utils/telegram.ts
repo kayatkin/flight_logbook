@@ -1,4 +1,5 @@
-import { TelegramWebApp, TelegramUser } from '../types';
+// src/utils/telegram.ts
+import { TelegramWebApp } from '../types';
 
 export class TelegramService {
   static getWebApp(): TelegramWebApp | null {
@@ -7,10 +8,11 @@ export class TelegramService {
     const webApp = window.Telegram?.WebApp;
     
     if (webApp) {
-      console.debug('[TelegramService] WebApp found:', {
+      // УДАЛЕНО логгирование initDataUnsafe
+      console.debug('[TelegramService] WebApp found', {
         platform: webApp.platform,
         version: webApp.version,
-        hasUser: !!webApp.initDataUnsafe?.user
+        // hasUser: ... ← НЕ ЛОГГИРУЕМ
       });
     }
     
@@ -35,9 +37,9 @@ export class TelegramService {
     try {
       webApp.ready();
       webApp.expand();
-      console.debug('[TelegramService] WebApp initialized successfully');
+      console.debug('[TelegramService] WebApp initialized');
     } catch (error) {
-      console.error('[TelegramService] Failed to initialize:', error);
+      console.error('[TelegramService] Initialization failed', error);
       throw error;
     }
   }

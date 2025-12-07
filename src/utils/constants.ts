@@ -1,23 +1,15 @@
 // src/utils/constants.ts
 export const APP_CONSTANTS = {
-  // Используем переменные окружения
-  SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || '',
-  SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+  // УДАЛЕНО: SUPABASE_URL и SUPABASE_ANON_KEY
+  // Они должны использоваться ТОЛЬКО в supabaseClient.ts
   
-  // Остальные константы
-  DEBOUNCE_DELAY: 2000,
-  TELEGRAM_INIT_DELAY: 100,
+  DEBOUNCE_DELAY: 3000, // Увеличено до 3 сек для синхронизации
+  TELEGRAM_INIT_DELAY: 100, // Но лучше 0
   
   LOCAL_STORAGE_KEYS: {
     DEV_USER_ID: 'flight_tracker_dev_user_id',
     THEME: 'flight_tracker_theme',
     LAST_SYNC: 'flight_tracker_last_sync'
-  },
-  
-  USER_PREFIXES: {
-    TELEGRAM: 'tg_',
-    TELEGRAM_ANON: 'telegram_anon_',
-    DEV: 'dev_user_'
   },
   
   DEFAULT_THEME: {
@@ -28,7 +20,7 @@ export const APP_CONSTANTS = {
       linkColor: '#0088cc',
       borderColor: '#e0e0e0',
       cardBg: '#ffffff',
-      activeBg: '#f0f8ff'
+      // activeBg: ... ← УДАЛЕНО
     },
     DARK: {
       bgColor: '#0f0f0f',
@@ -37,25 +29,9 @@ export const APP_CONSTANTS = {
       linkColor: '#5db0ff',
       borderColor: '#333333',
       cardBg: '#1c1c1c',
-      activeBg: 'rgba(93, 176, 255, 0.1)'
+      // activeBg: ... ← УДАЛЕНО
     }
   }
 } as const;
 
-// Проверка обязательных переменных окружения
-export const validateEnvironment = (): void => {
-  const requiredEnvVars = [
-    'VITE_SUPABASE_URL',
-    'VITE_SUPABASE_ANON_KEY'
-  ];
-
-  const missingVars = requiredEnvVars.filter(
-    varName => !import.meta.env[varName]
-  );
-
-  if (missingVars.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missingVars.join(', ')}`
-    );
-  }
-};
+// УДАЛЕНА функция validateEnvironment

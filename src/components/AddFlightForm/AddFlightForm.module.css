@@ -5,18 +5,18 @@
 }
 
 .form-section {
-  background-color: var(--tg-card-bg, #ffffff);
-  border: 1px solid var(--tg-border-color, #e0e0e0);
+  background-color: var(--tg-card-bg);
+  border: 1px solid var(--tg-border-color);
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--tg-bg-color), transparent 95%);
 }
 
 .section-title {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 700;
-  color: var(--tg-text-color, #333);
+  color: var(--tg-text-color);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -42,7 +42,7 @@
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--tg-text-color, #555);
+  color: var(--tg-text-color);
 }
 
 .form-label.required::after {
@@ -51,24 +51,22 @@
 }
 
 .form-input,
-.form-textarea,
-.form-select {
+.form-textarea {
   width: 100%;
   padding: 14px;
-  border: 2px solid var(--tg-border-color, #ddd);
+  border: 2px solid var(--tg-border-color);
   border-radius: 10px;
   font-size: 16px;
-  background-color: var(--tg-card-bg, #ffffff);
-  color: var(--tg-text-color, #333);
+  background-color: var(--tg-card-bg);
+  color: var(--tg-text-color);
   transition: all 0.3s ease;
 }
 
 .form-input:focus,
-.form-textarea:focus,
-.form-select:focus {
+.form-textarea:focus {
   outline: none;
-  border-color: var(--tg-link-color, #0088cc);
-  box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.2);
+  border-color: var(--tg-link-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tg-link-color), transparent 80%);
 }
 
 .form-textarea {
@@ -79,12 +77,27 @@
 }
 
 .form-select {
+  width: 100%;
+  padding: 14px;
+  border: 2px solid var(--tg-border-color);
+  border-radius: 10px;
+  font-size: 16px;
+  background-color: var(--tg-card-bg);
+  color: var(--tg-text-color);
+  transition: all 0.3s ease;
   appearance: none;
   background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   background-repeat: no-repeat;
   background-position: right 14px center;
   background-size: 16px;
   padding-right: 40px;
+  cursor: pointer;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--tg-link-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tg-link-color), transparent 80%);
 }
 
 .form-actions {
@@ -96,7 +109,7 @@
 .submit-button {
   flex: 2;
   padding: 18px;
-  background: linear-gradient(135deg, var(--tg-link-color, #0088cc) 0%, #0066aa 100%);
+  background: linear-gradient(135deg, var(--tg-link-color) 0%, color-mix(in srgb, var(--tg-link-color), black 20%) 100%);
   color: white;
   border: none;
   border-radius: 12px;
@@ -108,22 +121,23 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
+  user-select: none;
 }
 
-.submit-button:hover {
+.submit-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 136, 204, 0.3);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--tg-link-color), transparent 70%);
 }
 
-.submit-button:active {
+.submit-button:active:not(:disabled) {
   transform: translateY(0);
 }
 
 .clear-button {
   flex: 1;
   padding: 18px;
-  background-color: var(--tg-border-color, #e0e0e0);
-  color: var(--tg-text-color, #666);
+  background-color: var(--tg-border-color);
+  color: var(--tg-text-color);
   border: none;
   border-radius: 12px;
   font-size: 16px;
@@ -134,11 +148,54 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  user-select: none;
 }
 
-.clear-button:hover {
+.clear-button:hover:not(:disabled) {
   background-color: #ff3b30;
   color: white;
+}
+
+/* Состояния ошибок */
+.form-input.error,
+.form-textarea.error,
+.form-select.error {
+  border-color: #ff3b30;
+}
+
+.error-message {
+  color: #ff3b30;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}
+
+/* Спиннер загрузки */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid color-mix(in srgb, var(--tg-text-color), transparent 70%);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Состояния disabled */
+.submit-button:disabled,
+.clear-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.submit-button:disabled:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 /* Адаптивность */
@@ -181,62 +238,19 @@
   }
 }
 
-/* Добавьте в конец файла */
-
-.error {
-  border-color: #ff3b30 !important;
-}
-
-.error-message {
-  color: #ff3b30;
-  font-size: 12px;
-  margin-top: 4px;
-  display: block;
-}
-
-.spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: white;
-  animation: spin 1s ease-in-out infinite;
-  margin-right: 8px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.submit-button:disabled,
-.clear-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.submit-button:disabled:hover {
-  transform: none;
-  box-shadow: none;
-}
-
-/* Улучшение datalist */
-datalist {
-  position: absolute;
-  background-color: white;
-  border: 1px solid var(--tg-border-color, #ddd);
-  border-radius: 4px;
-  padding: 5px 0;
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 1000;
-}
-
-datalist option {
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-datalist option:hover {
-  background-color: var(--tg-active-bg, #f0f8ff);
+/* Поддержка reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .submit-button,
+  .clear-button {
+    transition: none;
+  }
+  
+  .submit-button:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+  }
+  
+  .spinner {
+    animation: none;
+  }
 }

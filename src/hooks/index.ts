@@ -3,3 +3,4 @@ export { useUser } from './useUser';
 export { useTheme } from './useTheme';
 export { useSupabaseSync } from './useSupabaseSync';
 export { useDebounce } from './useDebounce';
+// export { useLocalStorage } from './useLocalStorage'; // ← закомментируйте или удалите

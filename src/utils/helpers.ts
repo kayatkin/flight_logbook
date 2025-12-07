@@ -1,7 +1,14 @@
 // src/utils/helpers.ts
+
 export class Logger {
   static info(message: string, data?: any): void {
-    console.log(`[INFO] ${message}`, data || '');
+    if (import.meta.env.DEV) {
+      console.log(`[INFO] ${message}`, data || '');
+    }
+    // В продакшене логгируем только сообщение
+    if (!import.meta.env.DEV) {
+      console.log(`[INFO] ${message}`);
+    }
   }
   
   static debug(message: string, data?: any): void {
@@ -11,23 +18,35 @@ export class Logger {
   }
   
   static error(message: string, error?: any): void {
-    console.error(`[ERROR] ${message}`, error || '');
+    // Ошибки логгируем всегда, но без чувствительных данных
+    if (import.meta.env.DEV && error) {
+      console.error(`[ERROR] ${message}`, error);
+    } else {
+      console.error(`[ERROR] ${message}`);
+    }
   }
   
   static warn(message: string, data?: any): void {
-    console.warn(`[WARN] ${message}`, data || '');
+    if (import.meta.env.DEV) {
+      console.warn(`[WARN] ${message}`, data || '');
+    } else {
+      console.warn(`[WARN] ${message}`);
+    }
   }
 }
 
 export class UserHelper {
-  static generateUserId(prefix: string = 'dev_'): string {
-    // Для совместимости с UUID в Supabase
+  // ВСЕГДА генерируем UUID v4
+  static generateUserId(): string {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
       return crypto.randomUUID();
     }
-    
-    // Fallback для старых браузеров
-    return prefix + Math.random().toString(36).substring(2, 11);
+    // Fallback для очень старых браузеров (теоретически)
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
   }
   
   static getDevelopmentUserId(): string {
@@ -35,7 +54,7 @@ export class UserHelper {
     let userId = localStorage.getItem(key);
     
     if (!userId) {
-      userId = this.generateUserId('dev_');
+      userId = this.generateUserId();
       localStorage.setItem(key, userId);
     }
     

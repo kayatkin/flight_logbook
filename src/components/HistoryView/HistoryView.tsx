@@ -1,46 +1,19 @@
 import React, { useState, useMemo } from 'react';
+import { HistoryViewProps } from '@/types'; // ✅ Импортируем тип из types
+import { formatDateToDMY, formatFlightTime } from '@/utils/formatters';
 import './HistoryView.module.css';
 
-interface Flight {
-  id: string;
-  date: string;
-  airline: string;
-  flightNumber: string;
-  origin: string;
-  destination: string;
-  aircraft?: string;
-  registration?: string;
-  seat?: string;
-  distance?: number;
-  duration?: string;
-  class?: string;
-  note?: string;
-  created_at: string;
-}
-
-interface HistoryViewProps {
-  flights: Flight[];
-  onDelete: (id: string) => void;
-  isLoading?: boolean; // Добавили isLoading
-}
-
-// Утилита: YYYY-MM-DD → DD.MM.YYYY
-const formatDateToDMY = (isoDate: string): string => {
-  if (!isoDate) return '';
-  const [year, month, day] = isoDate.split('-');
-  return `${day}.${month}.${year}`;
-};
-
-// Утилита: форматирование времени (HH:MM)
-const formatTime = (timeStr?: string): string => {
-  if (!timeStr) return '';
-  return timeStr.replace('h', 'ч').replace('m', 'мин');
-};
+// Удаляем локальный интерфейс - используем импортированный
+// interface HistoryViewProps {
+//   flights: Flight[];
+//   onDelete: (id: string) => void;
+// }
 
 const HistoryView: React.FC<HistoryViewProps> = ({ 
   flights, 
-  onDelete, 
-  isLoading = false // Значение по умолчанию
+  onDelete,
+  isLoading = false,
+  className 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -59,21 +32,20 @@ const HistoryView: React.FC<HistoryViewProps> = ({
   }, [flights, searchTerm]);
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Удалить этот перелет?')) {
-      onDelete(id);
-    }
+    onDelete(id);
   };
 
-  // Отображение загрузки
+  // Добавим индикатор загрузки
   if (isLoading) {
     return (
-      <div className="history-loading">
+      <div className="loading-container">
         <div className="loading-spinner"></div>
-        <p>Загрузка перелетов...</p>
+        <p>Загрузка данных...</p>
       </div>
     );
   }
 
+  // Показываем пустое состояние, если данных нет
   if (flights.length === 0) {
     return (
       <div className="history-empty">
@@ -85,7 +57,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({
   }
 
   return (
-    <div className="history-container">
+    <div className={`history-container ${className || ''}`}>
       <div className="search-container">
         <input
           type="text"
@@ -129,9 +101,10 @@ const HistoryView: React.FC<HistoryViewProps> = ({
                 <button
                   onClick={() => handleDelete(flight.id)}
                   className="delete-btn"
-                  title="Удалить перелет"
+                  aria-label={`Удалить перелет от ${formatDateToDMY(flight.date)}`}
+                  disabled={isLoading}
                 >
-                  🗑️
+                  {isLoading ? '⏳' : '🗑️'}
                 </button>
               </div>
 
@@ -159,7 +132,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({
                   {flight.duration && (
                     <div className="info-row">
                       <span className="info-label">Время полета:</span>
-                      <span className="info-value">{formatTime(flight.duration)}</span>
+                      <span className="info-value">{formatFlightTime(flight.duration)}</span>
                     </div>
                   )}
 
@@ -173,7 +146,9 @@ const HistoryView: React.FC<HistoryViewProps> = ({
                   {flight.class && (
                     <div className="info-row">
                       <span className="info-label">Класс:</span>
-                      <span className="info-value badge">{flight.class}</span>
+                      <span className="info-value badge">
+                        {formatClassLabel(flight.class)}
+                      </span>
                     </div>
                   )}
 
@@ -194,9 +169,6 @@ const HistoryView: React.FC<HistoryViewProps> = ({
                   {flight.seat && (
                     <span className="meta-item">Место: {flight.seat}</span>
                   )}
-                  <span className="meta-item">
-                    ID: {flight.id.slice(-6)}
-                  </span>
                 </div>
               </div>
             </div>
@@ -205,6 +177,17 @@ const HistoryView: React.FC<HistoryViewProps> = ({
       )}
     </div>
   );
+};
+
+// Утилита для локализации класса обслуживания
+const formatClassLabel = (flightClass: string): string => {
+  const labels: Record<string, string> = {
+    economy: 'Эконом',
+    premium_economy: 'Премиум эконом',
+    business: 'Бизнес',
+    first: 'Первый',
+  };
+  return labels[flightClass] || flightClass;
 };
 
 export default HistoryView;

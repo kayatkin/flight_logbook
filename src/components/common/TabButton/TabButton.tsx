@@ -16,6 +16,7 @@ export const TabButton: React.FC<TabButtonProps> = ({
     <button
       onClick={onClick}
       className={`${styles.button} ${active ? styles.active : ''}`}
+      type="button" // ← явно указываем тип
     >
       {children}
     </button>

@@ -1,36 +1,26 @@
 :root {
-  /* Telegram Theme Variables */
-  --tg-theme-bg-color: #ffffff;
-  --tg-theme-text-color: #000000;
-  --tg-theme-hint-color: #999999;
-  --tg-theme-link-color: #2481cc;
-  --tg-theme-button-color: #2481cc;
-  --tg-theme-button-text-color: #ffffff;
-  
-  /* App Theme Variables */
+  /* Используем ТОЛЬКО переменные, предоставляемые Telegram */
   --tg-bg-color: var(--tg-theme-bg-color, #ffffff);
   --tg-text-color: var(--tg-theme-text-color, #000000);
-  --tg-hint-color: var(--tg-theme-hint-color, #888888);
+  --tg-hint-color: var(--tg-theme-hint-color, #999999);
   --tg-link-color: var(--tg-theme-button-color, #0088cc);
   --tg-border-color: var(--tg-theme-hint-color, #e0e0e0);
   --tg-card-bg: var(--tg-theme-bg-color, #ffffff);
   --tg-active-bg: rgba(0, 136, 204, 0.1);
+
+  /* Улучшение отображения нативных элементов */
+  color-scheme: light dark;
 }
 
-[data-theme="dark"] {
-  --tg-bg-color: #0f172a;
-  --tg-text-color: #f1f5f9;
-  --tg-hint-color: #94a3b8;
-  --tg-link-color: #60a5fa;
-  --tg-border-color: #334155;
-  --tg-card-bg: #1e293b;
-  --tg-active-bg: rgba(96, 165, 250, 0.1);
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 * {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 body {
@@ -39,13 +29,17 @@ body {
   color: var(--tg-text-color);
   line-height: 1.5;
   min-height: 100vh;
+  min-height: 100dvh; /* Динамическая высота для мобильных */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
-/* Custom scrollbar */
+/* Кастомный скроллбар (работает в WebKit) */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -61,4 +55,10 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--tg-link-color);
+}
+
+/* Универсальный скроллбар для Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tg-hint-color) var(--tg-border-color);
 }

@@ -1,9 +1,11 @@
+// src/components/AddFlightForm/AddFlightForm.tsx
 import React, { useState } from 'react';
+import { FlightFormData } from '@/types';
+import { Logger } from '@/utils/helpers';
 import './AddFlightForm.module.css';
-import { FlightFormData, FlightClass } from '@/types';
 
 interface AddFlightFormProps {
-  onAdd: (flight: FlightFormData) => void;
+  onAdd: (flight: FlightFormData) => Promise<void>;
   isLoading?: boolean;
   airlines?: string[];
   cities?: string[];
@@ -23,13 +25,13 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
     date: today,
     airline: '',
     flightNumber: '',
-    distance: '',
-    duration: '',
-    aircraft: '',
-    registration: '',
-    seat: '',
+    aircraft: undefined,
+    registration: undefined,
+    seat: undefined,
+    distance: undefined,
+    duration: undefined,
     class: 'economy',
-    note: '',
+    note: undefined,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -38,7 +40,9 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    // Пустое значение → undefined для опциональных полей
+    const newValue = value === '' ? undefined : value;
+    setFormData(prev => ({ ...prev, [name]: newValue }));
     
     // Очищаем ошибку при изменении поля
     if (errors[name]) {
@@ -53,7 +57,6 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Обязательные поля
     if (!formData.origin.trim()) {
       newErrors.origin = 'Город вылета обязателен';
     }
@@ -76,22 +79,10 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
       newErrors.flightNumber = 'Номер рейса обязателен';
     }
 
-    // Валидация числовых полей
-    if (formData.distance) {
-      const distanceNum = parseInt(formData.distance);
+    if (formData.distance !== undefined) {
+      const distanceNum = parseInt(formData.distance, 10);
       if (isNaN(distanceNum) || distanceNum < 0) {
         newErrors.distance = 'Дистанция должна быть положительным числом';
-      }
-    }
-
-    // Валидация даты
-    if (formData.date) {
-      const flightDate = new Date(formData.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      if (flightDate > today) {
-        newErrors.date = 'Дата перелета не может быть в будущем';
       }
     }
 
@@ -101,35 +92,28 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     try {
       await onAdd(formData);
-      
-      // Сброс формы при успешном добавлении
+      // Сброс с undefined для опциональных полей
       setFormData({
         origin: '',
         destination: '',
         date: today,
         airline: '',
         flightNumber: '',
-        distance: '',
-        duration: '',
-        aircraft: '',
-        registration: '',
-        seat: '',
+        aircraft: undefined,
+        registration: undefined,
+        seat: undefined,
+        distance: undefined,
+        duration: undefined,
         class: 'economy',
-        note: '',
+        note: undefined,
       });
-      
       setErrors({});
-      
     } catch (error) {
-      console.error('Failed to add flight:', error);
-      // Ошибка обрабатывается в родительском компоненте
+      Logger.error('Failed to add flight in form', error);
     }
   };
 
@@ -141,26 +125,33 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
         date: today,
         airline: '',
         flightNumber: '',
-        distance: '',
-        duration: '',
-        aircraft: '',
-        registration: '',
-        seat: '',
+        aircraft: undefined,
+        registration: undefined,
+        seat: undefined,
+        distance: undefined,
+        duration: undefined,
         class: 'economy',
-        note: '',
+        note: undefined,
       });
       setErrors({});
+      // Фокус на первое поле
+      setTimeout(() => {
+        document.querySelector<HTMLInputElement>('input[name="origin"]')?.focus();
+      }, 0);
     }
   };
 
-  // Автодополнение для городов и авиакомпаний
-  const filteredCities = cities.filter(city => 
-    city.toLowerCase().includes(formData.origin.toLowerCase()) || 
-    city.toLowerCase().includes(formData.destination.toLowerCase())
+  // Раздельная фильтрация для origin и destination
+  const filteredOriginCities = cities.filter(city =>
+    city.toLowerCase().includes(formData.origin?.toLowerCase() || '')
+  ).slice(0, 5);
+
+  const filteredDestinationCities = cities.filter(city =>
+    city.toLowerCase().includes(formData.destination?.toLowerCase() || '')
   ).slice(0, 5);
 
   const filteredAirlines = airlines.filter(airline =>
-    airline.toLowerCase().includes(formData.airline.toLowerCase())
+    airline.toLowerCase().includes(formData.airline?.toLowerCase() || '')
   ).slice(0, 5);
 
   return (
@@ -179,9 +170,10 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
             required
             className={`form-input ${errors.origin ? 'error' : ''}`}
             list="cities-origin"
+            autoFocus
           />
           <datalist id="cities-origin">
-            {filteredCities.map((city, index) => (
+            {filteredOriginCities.map((city, index) => (
               <option key={`origin-${index}`} value={city} />
             ))}
           </datalist>
@@ -201,7 +193,7 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
             list="cities-destination"
           />
           <datalist id="cities-destination">
-            {filteredCities.map((city, index) => (
+            {filteredDestinationCities.map((city, index) => (
               <option key={`dest-${index}`} value={city} />
             ))}
           </datalist>
@@ -268,7 +260,7 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
             <input
               type="text"
               name="aircraft"
-              value={formData.aircraft}
+              value={formData.aircraft ?? ''}
               onChange={handleChange}
               placeholder="Boeing 737-800"
               className="form-input"
@@ -280,7 +272,7 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
             <input
               type="text"
               name="registration"
-              value={formData.registration}
+              value={formData.registration ?? ''}
               onChange={handleChange}
               placeholder="VP-BGD"
               className="form-input"
@@ -293,7 +285,7 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
           <input
             type="text"
             name="seat"
-            value={formData.seat}
+            value={formData.seat ?? ''}
             onChange={handleChange}
             placeholder="12A"
             className="form-input"
@@ -310,7 +302,7 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
             <input
               type="number"
               name="distance"
-              value={formData.distance}
+              value={formData.distance ?? ''}
               onChange={handleChange}
               placeholder="1000"
               className={`form-input ${errors.distance ? 'error' : ''}`}
@@ -325,7 +317,7 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
             <input
               type="text"
               name="duration"
-              value={formData.duration}
+              value={formData.duration ?? ''}
               onChange={handleChange}
               placeholder="2h 30m"
               className="form-input"
@@ -355,7 +347,7 @@ const AddFlightForm: React.FC<AddFlightFormProps> = ({
           <label className="form-label">Дополнительная информация</label>
           <textarea
             name="note"
-            value={formData.note}
+            value={formData.note ?? ''}
             onChange={handleChange}
             placeholder="Интересные моменты перелета, обслуживание, задержки и т.д."
             className="form-textarea"

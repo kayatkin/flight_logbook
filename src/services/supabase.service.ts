@@ -1,16 +1,13 @@
-// src/services/supabase.service.ts
 import { supabase } from '../lib/supabaseClient';
-import { Flight, SupabaseData, Database, FlightClass } from '../types';
+import { Flight, SupabaseData, Database, FlightReason, FlightClass } from '../types';
 import { Logger } from '../utils/helpers';
 
 // Используем типы из Database
 type FlightRow = Database['public']['Tables']['flights']['Row'];
-type FlightInsert = Database['public']['Tables']['flights']['Insert'];
-type FlightUpdate = Database['public']['Tables']['flights']['Update'];
 
-// Тип для данных, которые мы будем отправлять в Supabase
+// Тип для данных, отправляемых в Supabase
 type SupabaseFlightData = {
-  id?: string;
+  id: string;
   user_id: string;
   date: string;
   airline: string;
@@ -34,16 +31,14 @@ export class SupabaseService {
   
   // Валидация UUID
   private static validateUUID(userId: string): void {
-    // Проверяем базовый формат UUID
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    
     if (!uuidRegex.test(userId)) {
       const error = new Error(`Invalid user ID format. Expected UUID, got: ${userId.substring(0, 20)}...`);
       Logger.error('Invalid UUID format', { userId, error });
       throw error;
     }
   }
-  
+
   // Проверка соединения с Supabase
   static async checkConnection(): Promise<boolean> {
     try {
@@ -57,13 +52,11 @@ export class SupabaseService {
           Logger.warn('Flights table does not exist yet, but Supabase connection is OK');
           return true;
         }
-        
         if (error.message?.includes('Failed to fetch') || error.code === 'PGRST301') {
           Logger.error('Cannot connect to Supabase. Check URL and API key.', error);
           return false;
         }
-        
-        Logger.warn('Supabase connection check warning', error);
+        Logger.warn('Supabase connection warning', error);
         return true;
       }
       
@@ -75,8 +68,15 @@ export class SupabaseService {
     }
   }
 
-  // Преобразование Flight в формат Supabase
-  private static convertToSupabaseFormat(flight: Flight, userId: string): SupabaseFlightData {
+  // Преобразование Flight → Supabase
+  private static toSupabase(flight: Flight, userId: string): SupabaseFlightData {
+    if (!flight.id) {
+      throw new Error('Flight ID is required for synchronization');
+    }
+    
+    const reason = flight.reason ? flight.reason.toString() : null;
+    const flightClass = flight.class ? flight.class.toString() : null;
+    
     return {
       id: flight.id,
       user_id: userId,
@@ -90,23 +90,29 @@ export class SupabaseService {
       seat: flight.seat || null,
       distance: flight.distance || null,
       duration: flight.duration || null,
-      class: flight.class || null, // FlightClass автоматически преобразуется в string
-      reason: flight.reason || null,
+      class: flightClass,
+      reason: reason,
       note: flight.note || null,
       created_at: flight.created_at,
-      updated_at: flight.updated_at || null
+      updated_at: flight.updated_at || null,
     };
   }
 
-  // Преобразование из формата Supabase в Flight
-  private static convertFromSupabaseFormat(row: FlightRow): Flight {
-    // Преобразуем string в FlightClass с проверкой
-    const convertClass = (value: string | null): FlightClass | undefined => {
-      if (!value) return undefined;
-      const validClasses: FlightClass[] = ['economy', 'premium_economy', 'business', 'first'];
-      return validClasses.includes(value as FlightClass) ? value as FlightClass : undefined;
-    };
+  // Преобразование Supabase → Flight
+  private static fromSupabase(row: FlightRow): Flight {
+    const validClasses: FlightClass[] = ['economy', 'premium_economy', 'business', 'first'];
+    const validReasons: FlightReason[] = ['business', 'leisure', 'personal', 'connecting', 'other'];
     
+    let flightClass: FlightClass = 'economy';
+    if (row.class && validClasses.includes(row.class as FlightClass)) {
+      flightClass = row.class as FlightClass;
+    }
+    
+    let reason: FlightReason | undefined;
+    if (row.reason && validReasons.includes(row.reason as FlightReason)) {
+      reason = row.reason as FlightReason;
+    }
+
     return {
       id: row.id,
       date: row.date,
@@ -119,416 +125,257 @@ export class SupabaseService {
       seat: row.seat || undefined,
       distance: row.distance || undefined,
       duration: row.duration || undefined,
-      class: convertClass(row.class),
-      reason: row.reason || undefined,
+      class: flightClass,
+      reason: reason,
       note: row.note || undefined,
       created_at: row.created_at,
       updated_at: row.updated_at || undefined,
-      supabase_created_at: row.created_at
     };
   }
   
-  // Получение всех данных пользователя
+  // Получение перелёта по ID
+  private static async getFlightById(userId: string, flightId: string): Promise<Flight | null> {
+    const { data, error } = await supabase
+      .from(this.TABLE_NAME)
+      .select('*')
+      .eq('user_id', userId)
+      .eq('id', flightId)
+      .single();
+    
+    if (error || !data) {
+      return null;
+    }
+    
+    return this.fromSupabase(data);
+  }
+  
+  // Загрузка данных пользователя
   static async loadUserData(userId: string): Promise<SupabaseData> {
-    try {
-      // Валидация UUID
-      this.validateUUID(userId);
-      
-      Logger.debug('Loading user data from Supabase', { userId });
-      
-      const { data, error, count } = await supabase
-        .from(this.TABLE_NAME)
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        Logger.error('Failed to load user data from Supabase', error);
-        throw new Error(`Database error: ${error.message}`);
-      }
-      
-      // Явно указываем тип данных
-      const flightRows = (data || []) as FlightRow[];
-      
-      const flights = flightRows.map(row => 
-        this.convertFromSupabaseFormat(row)
-      );
-      
-      // Извлекаем уникальные значения для автодополнения
-      const airlines = [...new Set(flights
-        .map(f => f.airline)
-        .filter((airline): airline is string => !!airline)
-        .map(airline => airline.trim()))];
-      
-      const originCities = [...new Set(flights
-        .map(f => f.origin)
-        .filter((city): city is string => !!city)
-        .map(city => city.trim()))];
-      
-      const destinationCities = [...new Set(flights
-        .map(f => f.destination)
-        .filter((city): city is string => !!city)
-        .map(city => city.trim()))];
-      
-      Logger.info('User data loaded successfully', {
-        userId,
-        flightsCount: count || 0,
-        airlinesCount: airlines.length,
-        originsCount: originCities.length,
-        destinationsCount: destinationCities.length
-      });
-      
-      return {
-        flights,
-        airlines,
-        origin_cities: originCities,
-        destination_cities: destinationCities
-      };
-    } catch (error) {
-      Logger.error('Critical error loading user data', error);
-      
-      // Возвращаем пустые данные вместо ошибки для лучшего UX
-      return {
-        flights: [],
-        airlines: [],
-        origin_cities: [],
-        destination_cities: []
-      };
+    this.validateUUID(userId);
+    Logger.debug('Loading user data from Supabase', { userId });
+    
+    const { data, error } = await supabase
+      .from(this.TABLE_NAME)
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      Logger.error('Failed to load user data from Supabase', error);
+      throw new Error(`Database error: ${error.message}`);
     }
+    
+    const flights = (data || []).map(row => this.fromSupabase(row));
+    
+    const airlines = [...new Set(flights.map(f => f.airline).filter(Boolean))];
+    const originCities = [...new Set(flights.map(f => f.origin).filter(Boolean))];
+    const destinationCities = [...new Set(flights.map(f => f.destination).filter(Boolean))];
+    
+    Logger.info('User data loaded successfully', {
+      userId,
+      flightsCount: flights.length,
+    });
+    
+    return {
+      flights,
+      airlines,
+      origin_cities: originCities,
+      destination_cities: destinationCities,
+    };
   }
   
-  // Сохранение всех данных пользователя
-  static async saveUserData(
-    userId: string,
-    data: Omit<SupabaseData, 'user_id'>
-  ): Promise<void> {
-    try {
-      this.validateUUID(userId);
-      
-      if (!data || !Array.isArray(data.flights)) {
-        throw new Error('Invalid data format');
-      }
-      
-      Logger.debug('Saving user data to Supabase', {
-        userId,
-        flightsCount: data.flights.length
+  // СИНХРОНИЗАЦИЯ: безопасное обновление через UPSERT
+  static async saveUserData(userId: string, data: Omit<SupabaseData, 'user_id'>): Promise<void> {
+    this.validateUUID(userId);
+    
+    if (!Array.isArray(data.flights)) {
+      throw new Error('Invalid data format: flights must be an array');
+    }
+    
+    Logger.debug('Syncing user data to Supabase (upsert)', {
+      userId,
+      flightsCount: data.flights.length,
+    });
+    
+    if (data.flights.length === 0) {
+      Logger.info('No flights to sync', { userId });
+      return;
+    }
+    
+    const flightRecords: SupabaseFlightData[] = data.flights.map(flight => this.toSupabase(flight, userId));
+    
+    const { error } = await supabase
+      .from(this.TABLE_NAME)
+      .upsert(flightRecords as any, {
+        onConflict: 'id',
+        ignoreDuplicates: false,
       });
+    
+    if (error) {
+      Logger.error('Failed to upsert user data', { error, userId });
+      throw new Error(`Sync failed: ${error.message}`);
+    }
+    
+    const localIds = new Set(data.flights.map(f => f.id));
+    const { data: remoteRows, error: fetchError } = await supabase
+      .from(this.TABLE_NAME)
+      .select('id')
+      .eq('user_id', userId);
+    
+    if (fetchError) {
+      Logger.warn('Could not fetch remote IDs for cleanup', fetchError);
+    } else if (remoteRows) {
+      const typedRows = remoteRows as Array<{ id: string }>;
+      const remoteIds = new Set(typedRows.map(r => r.id));
+      const idsToDelete = [...remoteIds].filter(id => !localIds.has(id));
       
-      // Удаляем существующие данные пользователя
-      const { error: deleteError } = await supabase
-        .from(this.TABLE_NAME)
-        .delete()
-        .eq('user_id', userId);
-      
-      if (deleteError && deleteError.code !== 'PGRST116') {
-        Logger.error('Failed to delete old data', deleteError);
-      }
-      
-      // Если есть данные для сохранения
-      if (data.flights.length > 0) {
-        // Подготавливаем данные для вставки
-        const flightInserts: SupabaseFlightData[] = data.flights.map(flight => 
-          this.convertToSupabaseFormat(flight, userId)
-        );
+      if (idsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from(this.TABLE_NAME)
+          .delete()
+          .in('id', idsToDelete);
         
-        // Вставляем данные пачками
-        const batchSize = 100;
-        for (let i = 0; i < flightInserts.length; i += batchSize) {
-          const batch = flightInserts.slice(i, i + batchSize);
-          const { error: insertError } = await supabase
-            .from(this.TABLE_NAME)
-            .insert(batch);
-            
-          if (insertError) {
-            Logger.error('Failed to insert batch', {
-              batchIndex: i,
-              error: insertError
-            });
-            throw insertError;
-          }
+        if (deleteError) {
+          Logger.warn('Failed to delete stale records', deleteError);
+        } else {
+          Logger.debug('Deleted stale records', { count: idsToDelete.length });
         }
-        
-        Logger.info('User data saved successfully', {
-          userId,
-          flightsCount: data.flights.length,
-          batches: Math.ceil(data.flights.length / batchSize)
-        });
-      } else {
-        Logger.info('No flights to save', { userId });
       }
-    } catch (error) {
-      Logger.error('Critical error saving user data', error);
-      throw error;
     }
+    
+    Logger.info('User data synced successfully', {
+      userId,
+      upserted: flightRecords.length,
+    });
   }
   
-  // Добавление одного перелета
+  // Добавление одного перелёта
   static async addFlight(userId: string, flight: Flight): Promise<void> {
-    try {
-      this.validateUUID(userId);
-      
-      if (!flight.id) {
-        flight.id = crypto.randomUUID();
-      }
-      
-      if (!flight.created_at) {
-        flight.created_at = new Date().toISOString();
-      }
-      
-      Logger.debug('Adding flight to Supabase', {
-        userId,
-        flightId: flight.id,
-        airline: flight.airline,
-        origin: flight.origin,
-        destination: flight.destination
-      });
-      
-      const insertData = this.convertToSupabaseFormat(flight, userId);
-      
-      const { error } = await supabase
-        .from(this.TABLE_NAME)
-        .insert(insertData);
-      
-      if (error) {
-        Logger.error('Failed to add flight to Supabase', {
-          error,
-          flightId: flight.id,
-          userId
-        });
-        throw new Error(`Failed to save flight: ${error.message}`);
-      }
-      
-      Logger.info('Flight added successfully', {
-        userId,
-        flightId: flight.id,
-        airline: flight.airline
-      });
-    } catch (error) {
-      Logger.error('Failed to add flight', error);
-      throw error;
+    this.validateUUID(userId);
+    if (!flight.id) {
+      throw new Error('Flight ID is required');
     }
+    if (!flight.created_at) {
+      flight.created_at = new Date().toISOString();
+    }
+    
+    Logger.debug('Adding flight to Supabase', {
+      userId,
+      flightId: flight.id,
+    });
+    
+    const supabaseData = this.toSupabase(flight, userId);
+    const { error } = await supabase
+      .from(this.TABLE_NAME)
+      .insert(supabaseData as any);
+    
+    if (error) {
+      Logger.error('Failed to add flight', { error, flightId: flight.id });
+      throw new Error(`Failed to save flight: ${error.message}`);
+    }
+    
+    Logger.info('Flight added successfully', { userId, flightId: flight.id });
   }
   
-  // Удаление перелета
+  // Удаление перелёта
   static async deleteFlight(userId: string, flightId: string): Promise<void> {
-    try {
-      this.validateUUID(userId);
-      
-      if (!flightId) {
-        throw new Error('Flight ID is required');
-      }
-      
-      Logger.debug('Deleting flight from Supabase', {
-        userId,
-        flightId
-      });
-      
-      const { error, count } = await supabase
-        .from(this.TABLE_NAME)
-        .delete()
-        .eq('user_id', userId)
-        .eq('id', flightId);
-      
-      if (error) {
-        Logger.error('Failed to delete flight from Supabase', {
-          error,
-          flightId,
-          userId
-        });
-        throw new Error(`Failed to delete flight: ${error.message}`);
-      }
-      
-      Logger.info('Flight deleted successfully', {
-        userId,
-        flightId,
-        deletedCount: count
-      });
-    } catch (error) {
-      Logger.error('Failed to delete flight', error);
+    this.validateUUID(userId);
+    if (!flightId) throw new Error('Flight ID is required');
+    
+    Logger.debug('Deleting flight', { userId, flightId });
+    
+    const { error, count } = await supabase
+      .from(this.TABLE_NAME)
+      .delete()
+      .eq('user_id', userId)
+      .eq('id', flightId);
+    
+    if (error) {
+      Logger.error('Failed to delete flight', { error, flightId });
       throw error;
     }
+    
+    Logger.info('Flight deleted', { userId, flightId, count });
   }
   
-  // Обновление перелета
-  static async updateFlight(
-    userId: string,
-    flightId: string,
-    updates: Partial<Flight>
-  ): Promise<void> {
-    try {
-      this.validateUUID(userId);
-      
-      if (!flightId) {
-        throw new Error('Flight ID is required');
-      }
-      
-      Logger.debug('Updating flight in Supabase', {
-        userId,
-        flightId,
-        updates: Object.keys(updates)
+  // Обновление перелёта - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  static async updateFlight(userId: string, flightId: string, updates: Partial<Flight>): Promise<void> {
+    this.validateUUID(userId);
+    if (!flightId) throw new Error('Flight ID is required');
+    
+    Logger.debug('Updating flight', { userId, flightId, fields: Object.keys(updates) });
+    
+    // Получаем текущий перелёт
+    const currentFlight = await this.getFlightById(userId, flightId);
+    if (!currentFlight) {
+      throw new Error(`Flight ${flightId} not found for user ${userId}`);
+    }
+    
+    // Создаем обновленный объект
+    const updatedFlight: Flight = {
+      ...currentFlight,
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    
+    // Преобразуем в формат Supabase и используем upsert
+    const updateData = this.toSupabase(updatedFlight, userId);
+    
+    const { error } = await supabase
+      .from(this.TABLE_NAME)
+      .upsert(updateData as any, {
+        onConflict: 'id',
+        ignoreDuplicates: false,
       });
-      
-      // Преобразуем обновления в формат Supabase
-      const updateData: Record<string, any> = {};
-      
-      // Мапим поля из Flight в формат Supabase
-      if (updates.date !== undefined) updateData.date = updates.date;
-      if (updates.airline !== undefined) updateData.airline = updates.airline;
-      if (updates.flightNumber !== undefined) updateData.flight_number = updates.flightNumber;
-      if (updates.origin !== undefined) updateData.origin = updates.origin;
-      if (updates.destination !== undefined) updateData.destination = updates.destination;
-      if (updates.aircraft !== undefined) updateData.aircraft = updates.aircraft || null;
-      if (updates.registration !== undefined) updateData.registration = updates.registration || null;
-      if (updates.seat !== undefined) updateData.seat = updates.seat || null;
-      if (updates.distance !== undefined) updateData.distance = updates.distance || null;
-      if (updates.duration !== undefined) updateData.duration = updates.duration || null;
-      if (updates.class !== undefined) updateData.class = updates.class || null;
-      if (updates.reason !== undefined) updateData.reason = updates.reason || null;
-      if (updates.note !== undefined) updateData.note = updates.note || null;
-      
-      // Всегда обновляем updated_at
-      updateData.updated_at = new Date().toISOString();
-      
-      // Обновляем в базе
-      const { error: updateError } = await supabase
-        .from(this.TABLE_NAME)
-        .update(updateData)
-        .eq('user_id', userId)
-        .eq('id', flightId);
-      
-      if (updateError) {
-        Logger.error('Failed to update flight in Supabase', {
-          error: updateError,
-          flightId,
-          userId
-        });
-        throw new Error(`Failed to update flight: ${updateError.message}`);
-      }
-      
-      Logger.info('Flight updated successfully', {
-        userId,
-        flightId,
-        updatedFields: Object.keys(updates)
-      });
-    } catch (error) {
-      Logger.error('Failed to update flight', error);
+    
+    if (error) {
+      Logger.error('Failed to update flight', { error, flightId });
       throw error;
     }
+    
+    Logger.info('Flight updated', { userId, flightId });
   }
   
-  // Поиск перелетов
-  static async searchFlights(
-    userId: string,
-    query: string
-  ): Promise<Flight[]> {
-    try {
-      this.validateUUID(userId);
-      
-      if (!query.trim()) {
-        const data = await this.loadUserData(userId);
-        return data.flights;
-      }
-      
-      Logger.debug('Searching flights in Supabase', {
-        userId,
-        query
-      });
-      
-      const { data, error } = await supabase
-        .from(this.TABLE_NAME)
-        .select('*')
-        .eq('user_id', userId)
-        .or(`origin.ilike.%${query}%,destination.ilike.%${query}%,airline.ilike.%${query}%,flight_number.ilike.%${query}%`)
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        Logger.error('Failed to search flights', error);
-        throw error;
-      }
-      
-      const flightRows = (data || []) as FlightRow[];
-      const flights = flightRows.map(row => 
-        this.convertFromSupabaseFormat(row)
-      );
-      
-      Logger.info('Flight search completed', {
-        userId,
-        query,
-        resultsCount: flights.length
-      });
-      
-      return flights;
-    } catch (error) {
-      Logger.error('Failed to search flights', error);
-      return [];
+  // Поиск перелётов
+  static async searchFlights(userId: string, query: string): Promise<Flight[]> {
+    this.validateUUID(userId);
+    if (!query.trim()) {
+      const data = await this.loadUserData(userId);
+      return data.flights;
     }
-  }
-  
-  // Получение статистики
-  static async getStats(userId: string): Promise<{
-    totalFlights: number;
-    totalDistance: number;
-    uniqueAirlines: number;
-    uniqueDestinations: number;
-    firstFlight?: string;
-    lastFlight?: string;
-  }> {
-    try {
-      this.validateUUID(userId);
-      
-      const { data, error } = await supabase
-        .from(this.TABLE_NAME)
-        .select('*')
-        .eq('user_id', userId);
-      
-      if (error) {
-        Logger.error('Failed to get stats', error);
-        throw error;
-      }
-      
-      const flightRows = (data || []) as FlightRow[];
-      const flights = flightRows.map(row => 
-        this.convertFromSupabaseFormat(row)
-      );
-      
-      if (flights.length === 0) {
-        return {
-          totalFlights: 0,
-          totalDistance: 0,
-          uniqueAirlines: 0,
-          uniqueDestinations: 0
-        };
-      }
-      
-      const totalDistance = flights.reduce((sum, flight) => 
-        sum + (flight.distance || 0), 0
-      );
-      
-      const uniqueAirlines = new Set(
-        flights.map(f => f.airline).filter(Boolean)
-      ).size;
-      
-      const uniqueDestinations = new Set(
-        flights.map(f => f.destination).filter(Boolean)
-      ).size;
-      
-      const sortedFlights = [...flights].sort((a, b) => 
-        new Date(a.date || a.created_at).getTime() - 
-        new Date(b.date || b.created_at).getTime()
-      );
-      
-      return {
-        totalFlights: flights.length,
-        totalDistance,
-        uniqueAirlines,
-        uniqueDestinations,
-        firstFlight: sortedFlights[0]?.date || sortedFlights[0]?.created_at,
-        lastFlight: sortedFlights[sortedFlights.length - 1]?.date || 
-                   sortedFlights[sortedFlights.length - 1]?.created_at
-      };
-    } catch (error) {
-      Logger.error('Failed to get stats', error);
+    
+    const { data, error } = await supabase
+      .from(this.TABLE_NAME)
+      .select('*')
+      .eq('user_id', userId)
+      .or(`origin.ilike.%${query}%,destination.ilike.%${query}%,airline.ilike.%${query}%,flight_number.ilike.%${query}%`)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      Logger.error('Search failed', error);
       throw error;
     }
+    
+    return (data || []).map(row => this.fromSupabase(row));
+  }
+  
+  // Статистика
+  static async getStats(userId: string) {
+    this.validateUUID(userId);
+    const { data, error } = await supabase
+      .from(this.TABLE_NAME)
+      .select('*')
+      .eq('user_id', userId);
+    
+    if (error) throw error;
+    
+    const flights = (data || []).map(row => this.fromSupabase(row));
+    
+    return {
+      totalFlights: flights.length,
+      totalDistance: flights.reduce((sum, f) => sum + (f.distance || 0), 0),
+      uniqueAirlines: new Set(flights.map(f => f.airline).filter(Boolean)).size,
+      uniqueDestinations: new Set(flights.map(f => f.destination).filter(Boolean)).size,
+    };
   }
 }

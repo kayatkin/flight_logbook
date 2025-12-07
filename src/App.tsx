@@ -1,31 +1,32 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TabButton } from './components/common/TabButton/TabButton';
 import { LoadingSpinner } from './components/common/LoadingSpinner/LoadingSpinner';
 import AddFlightForm from './components/AddFlightForm/AddFlightForm';
 import HistoryView from './components/HistoryView/HistoryView';
-import { useFlightStore, calculateStatistics, applyFilters } from './store/useFlightStore';
+import { useFlightStore, calculateStatistics, applyFilters } from './store/useFlightStore'; // ✅ Добавили useFlightStore
 import { useTelegram } from './hooks/useTelegram';
 import { useUser } from './hooks/useUser';
 import { useSupabaseSync } from './hooks/useSupabaseSync';
 import { useTheme } from './hooks/useTheme';
-import { FlightFormData, Flight } from './types';
+import { FlightFormData } from './types';
 import { Logger } from './utils/helpers';
 import './App.module.css';
 
 const App: React.FC = () => {
-  // Состояния UI
   const [activeTab, setActiveTab] = useState<'add' | 'history'>('add');
   const [notification, setNotification] = useState<{
     type: 'success' | 'error' | 'info';
     message: string;
   } | null>(null);
-  
-  // Флаг принудительного завершения загрузки (на случай зависания)
-  const [forceLoaded, setForceLoaded] = useState(false);
 
-  // Хуки
-  const { isTelegram, webApp, themeParams } = useTelegram();
+  // Telegram integration
+  const { isTelegram, webApp } = useTelegram();
   const { user: telegramUser, loading: telegramLoading } = useUser(isTelegram);
+
+  // Используем хук useFlightStore
+  const { addFlight, deleteFlight, clearError } = useFlightStore();
+
+  // Синхронизация с Supabase
   const {
     flights,
     airlines,
@@ -34,106 +35,45 @@ const App: React.FC = () => {
     loading: syncLoading,
     error: syncError,
     syncStatus,
-    addFlight: syncAddFlight,
-    deleteFlight: syncDeleteFlight,
     forceSync,
     clearError: clearSyncError,
     isOnline,
     lastSync,
-    pendingChanges
+    pendingChanges,
   } = useSupabaseSync(telegramUser?.id);
 
-  const {
-    flights: localFlights,
-    filters,
-    isLoading: storeLoading,
-    error: storeError,
-    clearError: clearStoreError
-  } = useFlightStore();
+  // Тема
+  useTheme(webApp);
 
-  // Вычисляем статистику и отфильтрованные перелеты
-  const statistics = calculateStatistics(localFlights);
-  const filteredLocalFlights = applyFilters(localFlights, filters);
+  // Фильтрация и статистика (локальные вычисления)
+  const [filters, _setFilters] = useState({ search: '' }); // ✅ setFilters пока оставляем, может понадобиться позже
+  const filteredFlights = applyFilters(flights, filters);
+  const statistics = calculateStatistics(filteredFlights);
 
-  // Применяем тему
-  useTheme(isTelegram, themeParams);
-
-  // Таймер для принудительного завершения загрузки (на случай зависания)
-  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  useEffect(() => {
-    // Принудительно завершаем загрузку через 5 секунд максимум
-    loadTimeoutRef.current = setTimeout(() => {
-      console.log('Force loading completion after timeout');
-      setForceLoaded(true);
-    }, 5000);
-
-    return () => {
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current);
-        loadTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  // Сбрасываем таймер, когда загрузка завершилась нормально
-  useEffect(() => {
-    if (!telegramLoading && !syncLoading && !storeLoading) {
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current);
-        loadTimeoutRef.current = null;
-      }
-      setForceLoaded(true);
-      console.log('All loading completed normally');
-    }
-  }, [telegramLoading, syncLoading, storeLoading]);
-
-  // Показываем уведомление
+  // Уведомления
   const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
     setNotification({ type, message });
-    setTimeout(() => setNotification(null), 3000);
+    const timer = setTimeout(() => setNotification(null), 3000);
+    return () => clearTimeout(timer);
   };
 
-  // Обработчик добавления перелета
+  // Обработчик добавления перелёта
   const handleAddFlight = async (flightData: FlightFormData) => {
     try {
-      // Преобразуем FlightFormData в Flight
-      const flight: Omit<Flight, 'id' | 'created_at'> = {
-        date: flightData.date,
-        airline: flightData.airline,
-        flightNumber: flightData.flightNumber,
-        origin: flightData.origin,
-        destination: flightData.destination,
-        aircraft: flightData.aircraft || undefined,
-        registration: flightData.registration || undefined,
-        seat: flightData.seat || undefined,
-        distance: flightData.distance ? parseInt(flightData.distance) : undefined,
-        duration: flightData.duration || undefined,
-        class: flightData.class,
-        note: flightData.note || undefined,
-      };
-
-      // Используем синхронизированный метод
-      await syncAddFlight(flight);
-
-      // Показываем уведомление
+      await addFlight(flightData);
+      
       showNotification('success', '✈️ Перелет успешно добавлен!');
       
-      // Вибрация в Telegram
       if (webApp) {
         webApp.HapticFeedback.notificationOccurred('success');
       }
-
-      // Переключаемся на историю
-      setActiveTab('history');
-
-      // Логируем
-      Logger.info('Flight added successfully', {
+      
+      Logger.info('Flight added', {
         origin: flightData.origin,
         destination: flightData.destination,
-        airline: flightData.airline
       });
-
+      
+      setActiveTab('history');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
       showNotification('error', `Ошибка: ${errorMessage}`);
@@ -141,120 +81,82 @@ const App: React.FC = () => {
       if (webApp) {
         webApp.HapticFeedback.notificationOccurred('error');
       }
-
+      
       Logger.error('Failed to add flight', error);
     }
   };
 
-  // Обработчик удаления перелета
+  // Обработчик удаления
   const handleDeleteFlight = async (id: string) => {
+    let confirmed = false;
+    if (webApp) {
+      confirmed = await new Promise(res => webApp.showConfirm('Удалить этот перелет?', res));
+    } else {
+      confirmed = window.confirm('Удалить этот перелет?');
+    }
+    
+    if (!confirmed) return;
+    
     try {
-      // Подтверждение в Telegram или браузере
-      let confirmed = false;
-      
-      if (webApp) {
-        confirmed = await new Promise<boolean>((resolve) => {
-          webApp.showConfirm('Удалить этот перелет?', (result) => {
-            resolve(result);
-          });
-        });
-      } else {
-        confirmed = window.confirm('Удалить этот перелет?');
-      }
-
-      if (!confirmed) return;
-
-      // Удаляем через синхронизированный метод
-      await syncDeleteFlight(id);
-
-      // Уведомление
+      await deleteFlight(id);
       showNotification('success', 'Перелет удален');
       
       if (webApp) {
         webApp.HapticFeedback.notificationOccurred('warning');
       }
-
+      
       Logger.info('Flight deleted', { flightId: id });
-
     } catch (error) {
       showNotification('error', 'Не удалось удалить перелет');
       Logger.error('Failed to delete flight', error);
     }
   };
 
-  // Принудительная синхронизация
-  const handleForceSync = async () => {
-    try {
-      await forceSync();
-      showNotification('success', 'Данные синхронизированы');
-    } catch (error) {
-      showNotification('error', 'Ошибка синхронизации');
-    }
-  };
-
-  // Очистка всех ошибок
+  // Очистка ошибок
   const handleClearErrors = () => {
     clearSyncError();
-    clearStoreError();
     setNotification(null);
+    clearError();
   };
 
-  // Форматирование времени последней синхронизации
-  const formatLastSync = () => {
-    if (!lastSync) return 'никогда';
-    
-    const syncDate = new Date(lastSync);
-    const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - syncDate.getTime()) / (1000 * 60));
-    
-    if (diffMinutes < 1) return 'только что';
-    if (diffMinutes < 60) return `${diffMinutes} мин назад`;
-    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} ч назад`;
-    
-    return syncDate.toLocaleDateString('ru-RU');
-  };
-
-  // Инициализация Telegram WebApp
+  // Telegram WebApp инициализация
   useEffect(() => {
     if (webApp) {
       webApp.ready();
       webApp.expand();
-      
-      // Настройка MainButton если нужно
       if (webApp.MainButton) {
         webApp.MainButton.setText('Синхронизировать');
-        webApp.MainButton.onClick(handleForceSync);
+        webApp.MainButton.onClick(forceSync);
         webApp.MainButton.show();
       }
-      
       Logger.info('Telegram WebApp initialized');
     }
-  }, [webApp]);
+  }, [webApp, forceSync]);
 
-  // Показываем загрузку только если не принудительно завершено
-  const isLoading = (telegramLoading || syncLoading || storeLoading) && !forceLoaded;
-  
+  // Определяем, показывать ли загрузку
+  const isLoading = telegramLoading || syncLoading;
+
   if (isLoading) {
-    console.log('Showing loading spinner');
     return (
       <LoadingSpinner 
-        text={telegramLoading ? 'Загрузка Telegram...' : 
-              syncLoading ? 'Синхронизация данных...' : 
-              'Загрузка перелетов...'}
+        text={
+          telegramLoading 
+            ? 'Загрузка Telegram...' 
+            : 'Синхронизация данных...'
+        }
       />
     );
   }
 
-  // Определяем приветствие
+  // Приветствие
   const getGreeting = () => {
     if (isTelegram && webApp?.initDataUnsafe?.user) {
-      const user = webApp.initDataUnsafe.user;
-      return `Привет, ${user.first_name || 'путешественник'}! ✈️`;
+      return `Привет, ${webApp.initDataUnsafe.user.first_name || 'путешественник'}! ✈️`;
     }
     return 'Добро пожаловать в бортовой журнал! ✈️';
   };
 
-  // Определяем источник данных
+  // Информация о хранилище
   const getDataSource = () => {
     if (isTelegram && isOnline) {
       return '🔄 Данные синхронизируются с облаком';
@@ -264,11 +166,7 @@ const App: React.FC = () => {
     return '💾 Данные хранятся локально';
   };
 
-  // Актуальные данные для отображения
-  const displayFlights = flights.length > 0 ? flights : filteredLocalFlights;
-  const totalFlights = displayFlights.length;
-
-  console.log('Rendering main interface with', totalFlights, 'flights');
+  const totalFlights = flights.length;
 
   return (
     <div className="app">
@@ -295,7 +193,7 @@ const App: React.FC = () => {
         <div className="storage-info">
           <small>{getDataSource()}</small>
           {lastSync && (
-            <small> • Синхронизировано: {formatLastSync()}</small>
+            <small> • Синхронизировано: {formatLastSync(lastSync)}</small>
           )}
           {pendingChanges > 0 && (
             <small> • Изменений: {pendingChanges}</small>
@@ -315,9 +213,9 @@ const App: React.FC = () => {
       )}
 
       {/* Ошибки */}
-      {(syncError || storeError) && (
+      {syncError && (
         <div className="error-notification" onClick={handleClearErrors}>
-          ⚠️ {syncError || storeError}
+          ⚠️ {syncError}
           <button className="close-error">×</button>
         </div>
       )}
@@ -328,7 +226,7 @@ const App: React.FC = () => {
           ⚡ Офлайн режим. Данные сохраняются локально.
           <button 
             className="retry-button"
-            onClick={handleForceSync}
+            onClick={forceSync}
             disabled={syncStatus.isSyncing}
           >
             {syncStatus.isSyncing ? 'Синхронизация...' : 'Повторить'}
@@ -345,16 +243,10 @@ const App: React.FC = () => {
 
       {/* Вкладки */}
       <nav className="tabs">
-        <TabButton
-          active={activeTab === 'add'}
-          onClick={() => setActiveTab('add')}
-        >
+        <TabButton active={activeTab === 'add'} onClick={() => setActiveTab('add')}>
           ➕ Добавить перелет
         </TabButton>
-        <TabButton
-          active={activeTab === 'history'}
-          onClick={() => setActiveTab('history')}
-        >
+        <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
           📚 История ({totalFlights})
         </TabButton>
       </nav>
@@ -372,9 +264,9 @@ const App: React.FC = () => {
         
         {activeTab === 'history' && (
           <HistoryView
-            flights={displayFlights}
+            flights={filteredFlights}
             onDelete={handleDeleteFlight}
-            isLoading={syncLoading || storeLoading}
+            isLoading={syncLoading}
           />
         )}
       </main>
@@ -384,7 +276,7 @@ const App: React.FC = () => {
         <div className="sync-footer">
           <button
             className="sync-button"
-            onClick={handleForceSync}
+            onClick={forceSync}
             disabled={syncStatus.isSyncing}
           >
             {syncStatus.isSyncing ? '🔄 Синхронизация...' : '🔄 Синхронизировать'}
@@ -393,6 +285,18 @@ const App: React.FC = () => {
       )}
     </div>
   );
+};
+
+// Вспомогательная функция форматирования времени
+const formatLastSync = (lastSync: string): string => {
+  const syncDate = new Date(lastSync);
+  const now = new Date();
+  const diffMinutes = Math.floor((now.getTime() - syncDate.getTime()) / (1000 * 60));
+  
+  if (diffMinutes < 1) return 'только что';
+  if (diffMinutes < 60) return `${diffMinutes} мин назад`;
+  if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} ч назад`;
+  return syncDate.toLocaleDateString('ru-RU');
 };
 
 export default App;

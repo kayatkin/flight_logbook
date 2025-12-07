@@ -9,28 +9,28 @@
 .search-input {
   width: 100%;
   padding: 14px 16px;
-  border: 2px solid var(--tg-border-color, #e0e0e0);
+  border: 2px solid var(--tg-border-color);
   border-radius: 12px;
   font-size: 16px;
-  background-color: var(--tg-card-bg, #ffffff);
-  color: var(--tg-text-color, #333);
+  background-color: var(--tg-card-bg);
+  color: var(--tg-text-color);
   transition: all 0.3s ease;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--tg-link-color, #0088cc);
-  box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.2);
+  border-color: var(--tg-link-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tg-link-color), transparent 80%);
 }
 
 .search-input::placeholder {
-  color: var(--tg-hint-color, #999);
+  color: var(--tg-hint-color);
 }
 
 .history-empty {
   text-align: center;
   padding: 60px 20px;
-  color: var(--tg-hint-color, #888);
+  color: var(--tg-hint-color);
 }
 
 .empty-icon {
@@ -42,7 +42,7 @@
 .history-empty h3 {
   margin: 0 0 12px 0;
   font-size: 20px;
-  color: var(--tg-text-color, #333);
+  color: var(--tg-text-color);
 }
 
 .history-empty p {
@@ -53,7 +53,7 @@
 .no-results {
   text-align: center;
   padding: 40px 20px;
-  color: var(--tg-hint-color, #888);
+  color: var(--tg-hint-color);
 }
 
 .no-results p {
@@ -63,17 +63,18 @@
 
 .clear-search {
   padding: 10px 20px;
-  background-color: var(--tg-link-color, #0088cc);
+  background-color: var(--tg-link-color);
   color: white;
   border: none;
   border-radius: 8px;
   font-size: 14px;
   cursor: pointer;
   transition: background-color 0.2s;
+  user-select: none;
 }
 
 .clear-search:hover {
-  background-color: var(--tg-link-color, #0066aa);
+  background-color: color-mix(in srgb, var(--tg-link-color), black 20%);
 }
 
 .flight-list {
@@ -83,8 +84,8 @@
 }
 
 .flight-card {
-  background-color: var(--tg-card-bg, #ffffff);
-  border: 2px solid var(--tg-border-color, #e0e0e0);
+  background-color: var(--tg-card-bg);
+  border: 2px solid var(--tg-border-color);
   border-radius: 16px;
   overflow: hidden;
   transition: all 0.3s ease;
@@ -92,8 +93,8 @@
 
 .flight-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  border-color: var(--tg-link-color, #0088cc);
+  box-shadow: 0 8px 25px color-mix(in srgb, var(--tg-bg-color), transparent 85%);
+  border-color: var(--tg-link-color);
 }
 
 .card-header {
@@ -101,8 +102,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  background: linear-gradient(135deg, var(--tg-bg-color, #f8f9fa) 0%, var(--tg-card-bg, #ffffff) 100%);
-  border-bottom: 1px solid var(--tg-border-color, #eee);
+  background: linear-gradient(135deg, var(--tg-bg-color) 0%, var(--tg-card-bg) 100%);
+  border-bottom: 1px solid var(--tg-border-color);
 }
 
 .route {
@@ -122,13 +123,13 @@
 }
 
 .departure {
-  background-color: rgba(0, 136, 204, 0.15);
-  color: var(--tg-link-color, #0088cc);
+  background-color: var(--tg-active-bg);
+  color: var(--tg-link-color);
 }
 
 .arrival {
-  background-color: rgba(76, 175, 80, 0.15);
-  color: #4caf50;
+  background-color: var(--tg-active-bg);
+  color: var(--tg-link-color);
 }
 
 .flight-line {
@@ -149,12 +150,12 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: var(--tg-hint-color, #999);
+  background-color: var(--tg-hint-color);
 }
 
 .airplane {
   font-size: 24px;
-  color: var(--tg-link-color, #0088cc);
+  color: var(--tg-link-color);
 }
 
 .delete-btn {
@@ -171,6 +172,7 @@
   justify-content: center;
   width: 48px;
   height: 48px;
+  user-select: none;
 }
 
 .delete-btn:hover {
@@ -182,61 +184,64 @@
   padding: 20px;
 }
 
-.flight-info {
+.flight-main-info {
   margin-bottom: 20px;
 }
 
-.info-row {
+.flight-main-info .info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
   font-size: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--tg-border-color);
+}
+
+.flight-main-info .info-row:last-child {
+  border-bottom: none;
+}
+
+.flight-main-info .info-row.note {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.flight-main-info .info-row.note .info-value {
+  width: 100%;
+  padding: 12px;
+  background-color: var(--tg-bg-color);
+  border-radius: 8px;
+  margin-top: 4px;
 }
 
 .info-label {
-  color: var(--tg-hint-color, #666);
+  color: var(--tg-hint-color);
   font-weight: 500;
 }
 
 .info-value {
-  color: var(--tg-text-color, #333);
+  color: var(--tg-text-color);
   font-weight: 600;
 }
 
 .highlight {
-  color: var(--tg-link-color, #0088cc);
-  background-color: rgba(0, 136, 204, 0.1);
+  color: var(--tg-link-color);
+  background-color: var(--tg-active-bg);
   padding: 4px 12px;
   border-radius: 8px;
 }
 
-.flight-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  background-color: var(--tg-bg-color, #f8f9fa);
-  padding: 16px;
-  border-radius: 12px;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stat-label {
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background-color: var(--tg-link-color);
+  color: white;
+  border-radius: 20px;
   font-size: 12px;
-  color: var(--tg-hint-color, #888);
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stat-value {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--tg-text-color, #333);
 }
 
 .card-footer {
@@ -244,19 +249,75 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background-color: var(--tg-bg-color, #f8f9fa);
-  border-top: 1px solid var(--tg-border-color, #eee);
+  background-color: var(--tg-bg-color);
+  border-top: 1px solid var(--tg-border-color);
   font-size: 12px;
 }
 
-.flight-id {
-  color: var(--tg-hint-color, #888);
-  font-family: monospace;
-  letter-spacing: 1px;
+.flight-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.flight-date {
-  color: var(--tg-hint-color, #888);
+.meta-item {
+  padding: 6px 12px;
+  background-color: var(--tg-bg-color);
+  color: var(--tg-hint-color);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Состояние загрузки */
+.history-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid var(--tg-border-color);
+  border-top: 3px solid var(--tg-link-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 24px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.history-loading p {
+  color: var(--tg-hint-color);
+  font-size: 16px;
+  margin: 0;
+}
+
+/* Поддержка reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .flight-card {
+    transition: none;
+  }
+  
+  .flight-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  
+  .loading-spinner {
+    animation: none;
+  }
+  
+  .delete-btn:hover {
+    transform: none;
+  }
 }
 
 /* Адаптивность */
@@ -271,9 +332,14 @@
     font-size: 14px;
   }
   
-  .flight-stats {
-    grid-template-columns: 1fr;
-    gap: 12px;
+  .badge {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+  
+  .meta-item {
+    font-size: 11px;
+    padding: 5px 10px;
   }
 }
 
@@ -302,118 +368,7 @@
     gap: 8px;
     text-align: center;
   }
-}
-
-/* Добавьте эти стили в ваш существующий файл */
-
-.history-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  text-align: center;
-}
-
-.loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 3px solid var(--tg-border-color, #e0e0e0);
-  border-top: 3px solid var(--tg-link-color, #0088cc);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 24px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.history-loading p {
-  color: var(--tg-hint-color, #888);
-  font-size: 16px;
-  margin: 0;
-}
-
-/* Дополнительно можно добавить стили для дополнительных элементов, если нужно: */
-
-.flight-main-info {
-  margin-bottom: 20px;
-}
-
-.flight-main-info .info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  font-size: 16px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--tg-border-color, #eee);
-}
-
-.flight-main-info .info-row:last-child {
-  border-bottom: none;
-}
-
-.flight-main-info .info-row.note {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.flight-main-info .info-row.note .info-value {
-  width: 100%;
-  padding: 12px;
-  background-color: var(--tg-bg-color, #f8f9fa);
-  border-radius: 8px;
-  margin-top: 4px;
-}
-
-.badge {
-  display: inline-block;
-  padding: 4px 12px;
-  background-color: var(--tg-link-color, #0088cc);
-  color: white;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.flight-meta {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.meta-item {
-  padding: 6px 12px;
-  background-color: var(--tg-bg-color, #f8f9fa);
-  color: var(--tg-hint-color, #666);
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* Адаптивность для новых элементов */
-@media (max-width: 768px) {
-  .flight-main-info .info-row {
-    font-size: 14px;
-  }
   
-  .badge {
-    font-size: 11px;
-    padding: 3px 10px;
-  }
-  
-  .meta-item {
-    font-size: 11px;
-    padding: 5px 10px;
-  }
-}
-
-@media (max-width: 480px) {
   .history-loading {
     padding: 40px 16px;
   }
@@ -425,5 +380,11 @@
   
   .flight-meta {
     justify-content: center;
+  }
+  
+  .delete-btn {
+    width: 56px;
+    height: 56px;
+    padding: 16px;
   }
 }

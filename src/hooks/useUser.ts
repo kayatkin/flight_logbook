@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { UserData } from '../types';
 import { TelegramService } from '../utils/telegram';
-import { UserHelper } from '../utils/helpers';
 import { Logger } from '../utils/helpers';
 
 export const useUser = (isTelegram: boolean) => {
@@ -18,39 +17,48 @@ export const useUser = (isTelegram: boolean) => {
       if (isTelegram) {
         const telegramUser = TelegramService.getUser();
         
-        if (telegramUser) {
-          // Генерируем UUID из Telegram ID
-          const uuid = uuidv4();
+        if (telegramUser && telegramUser.id) {
+          const storageKey = `flightlog_user_id_${telegramUser.id}`;
+          let persistentId = localStorage.getItem(storageKey);
+          
+          if (!persistentId) {
+            persistentId = uuidv4();
+            localStorage.setItem(storageKey, persistentId);
+            Logger.debug('Generated new persistent user ID', { telegramId: telegramUser.id, userId: persistentId });
+          }
+          
           userData = {
-            id: uuid, // Теперь UUID вместо tg_123
+            id: persistentId,
             name: telegramUser.name,
-            isTelegram: true
+            isTelegram: true,
+            telegramId: telegramUser.id.toString()
           };
-          Logger.debug('Telegram user initialized with UUID', userData);
         } else {
-          const anonUuid = uuidv4();
+          // Fallback для анонимного Telegram-пользователя
+          const anonId = 'anon_' + uuidv4();
           userData = {
-            id: anonUuid,
+            id: anonId,
             name: 'Аноним',
             isTelegram: true
           };
-          Logger.debug('Anonymous Telegram user initialized with UUID', userData);
         }
       } else {
-        const devUuid = UserHelper.getDevelopmentUserId();
+        // Режим разработки
+        const devId = 'dev_' + uuidv4();
         userData = {
-          id: devUuid,
+          id: devId,
           name: 'Разработчик',
           isTelegram: false
         };
-        Logger.debug('Development user initialized', userData);
       }
       
       setUser(userData);
+      Logger.info('User initialized', { userId: userData.id, isTelegram: userData.isTelegram });
     } catch (error) {
       Logger.error('Failed to initialize user', error);
+      const fallbackId = 'fallback_' + uuidv4();
       setUser({
-        id: uuidv4(), // Всегда UUID даже при ошибке
+        id: fallbackId,
         name: 'Гость',
         isTelegram: false
       });

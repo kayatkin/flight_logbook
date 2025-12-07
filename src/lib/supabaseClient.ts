@@ -1,5 +1,4 @@
-// src/lib/supabaseClient.ts
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/types';
 
 // Получаем переменные окружения
@@ -15,27 +14,38 @@ if (!supabaseAnonKey) {
   throw new Error('Missing VITE_SUPABASE_ANON_KEY environment variable');
 }
 
-// Создаем клиент Supabase с типизацией
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  },
-  global: {
-    headers: {
-      'x-application-name': 'flight-logbook'
-    }
-  }
-});
+// Создаём fetch с таймаутом для надёжности
+const createFetchWithTimeout = (timeoutMs: number = 10000) => {
+  return async (resource: RequestInfo | URL, options?: RequestInit) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-// Вспомогательная функция для проверки подключения
-export const checkSupabaseConnection = async (): Promise<boolean> => {
-  try {
-    const { error } = await supabase.from('_health').select('*').limit(1);
-    return !error;
-  } catch (err) {
-    console.error('Supabase connection check failed:', err);
-    return false;
-  }
+    try {
+      return await fetch(resource, {
+        ...options,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
 };
+
+// Создаём клиент Supabase с типизацией и настройками
+export const supabase: SupabaseClient<Database> = createClient<Database>(
+  supabaseUrl,
+  supabaseAnonKey,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      headers: {
+        'x-application-name': 'flight-logbook',
+      },
+      fetch: createFetchWithTimeout(10000), // 10 секунд на запрос
+    },
+  }
+);

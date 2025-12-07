@@ -1,56 +1,53 @@
-// Типы для перелетов
+// === Основные сущности ===
+
+/**
+ * Представление перелёта в клиентском приложении.
+ * Все опциональные поля используют `undefined`, а не пустые строки.
+ */
 export interface Flight {
   id: string;
-  date: string; // Формат: YYYY-MM-DD
+  date: string; // YYYY-MM-DD
   airline: string;
   flightNumber: string;
   origin: string;
   destination: string;
-  aircraft?: string; // Опционально
-  registration?: string; // Опционально
-  seat?: string; // Опционально
-  distance?: number; // Опционально (в км)
-  duration?: string; // Опционально (например: "2h 30m")
-  class?: FlightClass; // Опционально
-  reason?: string; // Опционально
-  note?: string; // Опционально
-  created_at: string; // ISO строка
-  updated_at?: string; // ISO строка (опционально)
-  supabase_created_at?: string; // Метаданные из Supabase
+  aircraft?: string;
+  registration?: string;
+  seat?: string;
+  distance?: number; // км
+  duration?: string; // напр.: "2h 30m"
+  class: FlightClass;
+  reason?: FlightReason;
+  note?: string;
+  created_at: string; // ISO 8601
+  updated_at?: string; // ISO 8601
 }
 
-// Тип для класса обслуживания
-export type FlightClass = 
-  | 'economy' 
-  | 'premium_economy' 
-  | 'business' 
-  | 'first';
+export type FlightClass = 'economy' | 'premium_economy' | 'business' | 'first';
 
-// Тип для причины полета
-export type FlightReason = 
-  | 'business' 
-  | 'leisure' 
-  | 'personal' 
-  | 'connecting' 
-  | 'other';
+export type FlightReason = 'business' | 'leisure' | 'personal' | 'connecting' | 'other';
 
-// Данные из формы для создания перелета
+/**
+ * Данные формы добавления перелёта.
+ * Опциональные поля могут быть undefined — форма отправляет только то, что ввёл пользователь.
+ */
 export interface FlightFormData {
   date: string;
   airline: string;
   flightNumber: string;
   origin: string;
   destination: string;
-  aircraft: string;
-  registration: string;
-  seat: string;
-  distance: string; // Строка в форме, преобразуется в number
-  duration: string;
-  class: FlightClass;
-  note: string;
+  aircraft?: string;
+  registration?: string;
+  seat?: string;
+  distance?: string; // строка из инпута, преобразуется в number
+  duration?: string;
+  class: FlightClass; // всегда задан (с дефолтом)
+  note?: string;
 }
 
-// Фильтры для поиска перелетов
+// === Фильтрация и статистика ===
+
 export interface FlightFilters {
   search?: string;
   airline?: string;
@@ -63,7 +60,6 @@ export interface FlightFilters {
   sortOrder?: 'asc' | 'desc';
 }
 
-// Статистика по перелетам
 export interface FlightStats {
   totalFlights: number;
   totalDistance: number;
@@ -76,7 +72,8 @@ export interface FlightStats {
   shortestFlight?: Flight;
 }
 
-// Telegram типы
+// === Telegram интеграция ===
+
 export interface TelegramUser {
   id: number;
   first_name?: string;
@@ -98,8 +95,11 @@ export interface ThemeParams {
   secondary_bg_color?: string;
 }
 
+/**
+ * Минимальный интерфейс Telegram WebApp, используемый в приложении.
+ */
 export interface TelegramWebApp {
-  // Основные свойства
+  // Инициализационные данные
   initData: string;
   initDataUnsafe: {
     user?: TelegramUser;
@@ -107,6 +107,8 @@ export interface TelegramWebApp {
     auth_date?: string;
     hash?: string;
   };
+  
+  // Метаданные
   version: string;
   platform: string;
   colorScheme: 'light' | 'dark';
@@ -114,12 +116,38 @@ export interface TelegramWebApp {
   
   // Состояние
   isExpanded: boolean;
-  isClosingConfirmationEnabled: boolean;
   viewportHeight: number;
   viewportStableHeight: number;
-  headerColor: string;
-  backgroundColor: string;
+
+  // Основные методы
+  ready: () => void;
+  expand: () => void;
+  close: () => void;
+  showAlert: (message: string, callback?: () => void) => void;
+  showConfirm: (message: string, callback?: (confirmed: boolean) => void) => void;
+  openLink: (url: string) => void;
   
+  // 🔥 ДОБАВЛЕНО: Методы для работы с событиями
+  onEvent: (eventType: string, eventHandler: () => void) => void;
+  offEvent: (eventType: string, eventHandler: () => void) => void;
+  
+  // 🔥 ДОБАВЛЕНО: Метод отправки данных
+  sendData: (data: { data: string }) => void;
+  
+  // 🔥 ДОБАВЛЕНО: Метод показа popup
+  showPopup: (
+    params: {
+      title?: string;
+      message: string;
+      buttons: Array<{
+        id?: string;
+        type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive';
+        text: string;
+      }>;
+    },
+    callback?: (buttonId?: string) => void
+  ) => void;
+
   // Компоненты
   MainButton: {
     text: string;
@@ -137,99 +165,58 @@ export interface TelegramWebApp {
     disable: () => void;
     showProgress: (leaveActive?: boolean) => void;
     hideProgress: () => void;
-    setParams: (params: { 
-      text?: string; 
-      color?: string; 
-      text_color?: string; 
-      is_active?: boolean; 
-      is_visible?: boolean; 
+    setParams: (params: {
+      text?: string;
+      color?: string;
+      text_color?: string;
+      is_active?: boolean;
+      is_visible?: boolean;
     }) => void;
   };
-  
-  BackButton: {
+
+  // 🔥 ДОБАВЛЕНО: BackButton (если используется)
+  BackButton?: {
     isVisible: boolean;
     onClick: (callback: () => void) => void;
     offClick: (callback: () => void) => void;
     show: () => void;
     hide: () => void;
   };
-  
-  SettingsButton: {
+
+  // 🔥 ДОБАВЛЕНО: SettingsButton (если используется)
+  SettingsButton?: {
     isVisible: boolean;
     onClick: (callback: () => void) => void;
     offClick: (callback: () => void) => void;
     show: () => void;
     hide: () => void;
   };
-  
+
   HapticFeedback: {
     impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
     notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
     selectionChanged: () => void;
   };
-  
-  // Методы
-  ready: () => void;
-  expand: () => void;
-  close: () => void;
-  showAlert: (message: string, callback?: () => void) => void;
-  showConfirm: (message: string, callback?: (confirmed: boolean) => void) => void;
-  showPopup: (params: {
-    title?: string;
-    message: string;
-    buttons?: Array<{
-      id?: string;
-      type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive';
-      text: string;
-    }>;
-  }, callback?: (buttonId: string) => void) => void;
-  
-  // События
-  onEvent: (eventType: TelegramEventType, eventHandler: Function) => void;
-  offEvent: (eventType: TelegramEventType, eventHandler: Function) => void;
-  
-  // Дополнительные методы
-  sendData: (data: any) => void;
-  switchInlineQuery: (query: string, choose_chat_types?: string[]) => void;
-  openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
-  openTelegramLink: (url: string) => void;
-  
-  // Биллинг
-  openInvoice: (url: string, callback?: (status: string) => void) => void;
 }
 
-// Типы событий Telegram WebApp
-export type TelegramEventType = 
-  | 'themeChanged'
-  | 'viewportChanged'
-  | 'mainButtonClicked'
-  | 'backButtonClicked'
-  | 'settingsButtonClicked'
-  | 'invoiceClosed'
-  | 'qrTextReceived'
-  | 'clipboardTextReceived'
-  | 'writeAccessRequested'
-  | 'contactRequested';
+// === Данные пользователя и синхронизация ===
 
-// Данные пользователя приложения
 export interface UserData {
   id: string; // UUID
   name: string;
   isTelegram: boolean;
-  telegramId?: number; // ID пользователя Telegram (если есть)
+  telegramId?: string;
   avatarUrl?: string;
 }
 
-// Данные из Supabase
 export interface SupabaseData {
   flights: Flight[];
   airlines: string[];
   origin_cities: string[];
   destination_cities: string[];
-  _synced_at?: string; // Время последней синхронизации
+  _synced_at?: string;
 }
 
-// Состояние синхронизации
 export interface SyncState {
   isSyncing: boolean;
   lastSync: string | null;
@@ -238,73 +225,8 @@ export interface SyncState {
   errorMessage?: string;
 }
 
-// Настройки приложения
-export interface AppSettings {
-  theme: 'light' | 'dark' | 'auto';
-  measurementUnits: 'metric' | 'imperial';
-  autoSync: boolean;
-  notifications: boolean;
-  analytics: boolean;
-  backupFrequency: 'daily' | 'weekly' | 'monthly' | 'never';
-  language: string;
-}
+// === Типы для компонентов ===
 
-// Тип для ответа Supabase
-export type SupabaseResponse<T> = {
-  data: T | null;
-  error: Error | null;
-  status: number;
-  statusText: string;
-  count?: number | null;
-};
-
-// Типы для хуков
-export interface UseFlightStoreReturn {
-  flights: Flight[];
-  addFlight: (flight: FlightFormData) => Promise<void>;
-  updateFlight: (id: string, updates: Partial<Flight>) => Promise<void>;
-  deleteFlight: (id: string) => Promise<void>;
-  isLoading: boolean;
-  error: string | null;
-  filters: FlightFilters;
-  setFilters: (filters: Partial<FlightFilters>) => void;
-  filteredFlights: Flight[];
-  stats: FlightStats;
-}
-
-export interface UseSupabaseSyncReturn {
-  data: SupabaseData;
-  loading: boolean;
-  error: string | null;
-  syncStatus: SyncState;
-  addFlight: (flight: Flight) => Promise<void>;
-  deleteFlight: (flightId: string) => Promise<void>;
-  updateFlight: (flightId: string, updates: Partial<Flight>) => Promise<void>;
-  forceSync: () => Promise<void>;
-  retrySync: () => Promise<void>;
-}
-
-// Утилитарные типы
-export type Nullable<T> = T | null;
-export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
-export type RequiredKeys<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
-
-// Enum для статусов
-export enum FlightStatus {
-  SCHEDULED = 'scheduled',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-  DELAYED = 'delayed'
-}
-
-export enum SyncStatus {
-  IDLE = 'idle',
-  SYNCING = 'syncing',
-  ERROR = 'error',
-  OFFLINE = 'offline'
-}
-
-// Типы для компонентов
 export interface AddFlightFormProps {
   onAdd: (flight: FlightFormData) => Promise<void>;
   isLoading?: boolean;
@@ -323,7 +245,25 @@ export interface HistoryViewProps {
   className?: string;
 }
 
-// Типы для Supabase Database - УПРОЩЕННАЯ ВЕРСИЯ
+// === Глобальные декларации ===
+
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp: TelegramWebApp;
+    };
+  }
+}
+
+// === ВАЖНО: Тип Database рекомендуется генерировать автоматически ===
+//
+// Запустите в корне проекта:
+// npx supabase gen types typescript --project-id YOUR_PROJECT_ID --schema public > src/types/supabase.generated.ts
+//
+// Затем замените этот блок на:
+// export type { Database } from './supabase.generated';
+
+// Временный тип для совместимости (удалить после генерации)
 export type Database = {
   public: {
     Tables: {
@@ -341,7 +281,7 @@ export type Database = {
           seat: string | null;
           distance: number | null;
           duration: string | null;
-          class: string | null; // Supabase хранит как string
+          class: string | null;
           reason: string | null;
           note: string | null;
           created_at: string;
@@ -360,7 +300,7 @@ export type Database = {
           seat?: string | null;
           distance?: number | null;
           duration?: string | null;
-          class?: string | null; // Supabase хранит как string
+          class?: string | null;
           reason?: string | null;
           note?: string | null;
           created_at?: string;
@@ -379,7 +319,7 @@ export type Database = {
           seat?: string | null;
           distance?: number | null;
           duration?: string | null;
-          class?: string | null; // Supabase хранит как string
+          class?: string | null;
           reason?: string | null;
           note?: string | null;
           created_at?: string;
@@ -389,12 +329,3 @@ export type Database = {
     };
   };
 };
-
-// Global declarations
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp: TelegramWebApp;
-    };
-  }
-}
